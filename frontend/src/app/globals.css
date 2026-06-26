@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Custom Theme: Indigo / Violet / Cyan ─────────────────────────── */
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 20% 95%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 215 20% 95%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 215 20% 95%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 20% 91%;
+    --input: 215 20% 91%;
+    --ring: 239 84% 67%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 20% 98%;
+    --card: 222 44% 9%;
+    --card-foreground: 210 20% 98%;
+    --popover: 222 44% 9%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 30% 14%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 222 30% 14%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 222 30% 14%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
+    --ring: 252 80% 65%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* ─── Scrollbar Styling ─────────────────────────────────────────────── */
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted));
+    border-radius: 3px;
+  }
+}
+
+/* ─── Glass Morphism Utility ────────────────────────────────────────── */
+
+@layer utilities {
+  .glass {
+    @apply bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/20 dark:border-white/10;
+  }
+  .glass-strong {
+    @apply bg-white/80 dark:bg-white/10 backdrop-blur-2xl border border-white/30 dark:border-white/15;
+  }
+}
+
+/* ─── Gradient Utilities ────────────────────────────────────────────── */
+
+@layer utilities {
+  .gradient-primary {
+    @apply bg-gradient-to-r from-indigo-500 via-violet-500 to-cyan-500;
+  }
+  .gradient-primary-subtle {
+    @apply bg-gradient-to-br from-indigo-500/10 via-violet-500/5 to-cyan-500/10;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400 bg-clip-text text-transparent;
+  }
+}
+
+/* ─── Prose / Markdown Styles ───────────────────────────────────────── */
+
+.prose-chat {
+  @apply text-sm leading-relaxed;
+}
+.prose-chat h1 { @apply text-xl font-bold mt-4 mb-2; }
+.prose-chat h2 { @apply text-lg font-semibold mt-3 mb-2; }
+.prose-chat h3 { @apply text-base font-semibold mt-2 mb-1; }
+.prose-chat p { @apply mb-2 last:mb-0; }
+.prose-chat ul { @apply list-disc pl-5 mb-2 space-y-1; }
+.prose-chat ol { @apply list-decimal pl-5 mb-2 space-y-1; }
+.prose-chat li { @apply leading-relaxed; }
+.prose-chat blockquote {
+  @apply border-l-2 border-primary/50 pl-3 italic text-muted-foreground my-2;
+}
+.prose-chat a {
+  @apply text-primary underline underline-offset-2 hover:text-primary/80 transition-colors;
+}
+.prose-chat table {
+  @apply w-full border-collapse my-3 text-xs;
+}
+.prose-chat thead th {
+  @apply bg-muted px-3 py-2 text-left font-semibold border-b border-border;
+}
+.prose-chat tbody td {
+  @apply px-3 py-2 border-b border-border/50;
+}
+.prose-chat pre {
+  @apply bg-muted rounded-lg p-4 overflow-x-auto my-3 text-xs;
+}
+.prose-chat code {
+  @apply bg-muted px-1.5 py-0.5 rounded text-xs font-mono;
+}
+.prose-chat pre code {
+  @apply bg-transparent p-0;
+}
+.prose-chat hr {
+  @apply border-border my-4;
+}
+.prose-chat img {
+  @apply rounded-lg max-w-full my-3;
+}
+
+/* ─── Highlight.js Theme Override (Dark) ────────────────────────────── */
+
+.dark .hljs {
+  background: hsl(222 44% 9%) !important;
+  color: hsl(210 20% 85%) !important;
+}
+
+/* ─── Focus Visible ─────────────────────────────────────────────────── */
+
+@layer base {
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+}
+
+/* ─── Reduced Motion ────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

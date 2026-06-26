@@ -1,0 +1,43 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy-frontend:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # For Vercel, the easiest CI/CD is connecting the GitHub repo directly in the Vercel Dashboard.
+      # Alternatively, you can use the Vercel CLI here:
+      - name: Install Vercel CLI
+        run: npm i -g vercel
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        
+      - name: Deploy Project Artifacts to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        
+  deploy-backend:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Render provides a Deploy Hook URL that you can simply curl to trigger a deployment
+      # of the connected repository and render.yaml blueprint.
+      - name: Trigger Render Deployment
+        run: |
+          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          else
+            echo "RENDER_DEPLOY_HOOK_URL is not set. Assuming GitHub app integration handles deployment."
+          fi

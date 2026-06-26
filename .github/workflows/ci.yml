@@ -1,0 +1,72 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  backend:
+    name: Backend Checks (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install flake8 mypy pytest
+          
+      - name: Lint with flake8
+        run: flake8 backend/app --count --show-source --statistics --max-line-length=100
+        
+      - name: Type check with mypy
+        run: mypy backend/app --ignore-missing-imports
+        
+      - name: Run tests
+        # Assuming you will add pytest tests in the future
+        run: |
+          if [ -d "backend/tests" ]; then
+            pytest backend/tests
+          else
+            echo "No tests directory found, skipping."
+          fi
+
+  frontend:
+    name: Frontend Checks (Node.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+          
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+        
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint --if-present
+        
+      - name: Type check
+        working-directory: frontend
+        run: npx tsc --noEmit
+        
+      - name: Build Verification
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: "/api"
+        run: npm run build
