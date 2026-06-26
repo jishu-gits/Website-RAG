@@ -5,7 +5,8 @@ Environment variables are loaded from a `.env` file at the project root. The cla
 into logical sub‑sections for easy access throughout the codebase.
 """
 
-from pydantic import BaseSettings, Field, SecretStr
+from pydantic import Field, SecretStr
+from pydantic_settings import BaseSettings
 from pathlib import Path
 
 class Settings(BaseSettings):
@@ -31,7 +32,7 @@ class Settings(BaseSettings):
     retrieval_top_k: int = Field(5, env="RETRIEVAL_TOP_K")
     # ---- Logging settings ----
     log_level: str = Field("INFO", env="LOG_LEVEL")
-    log_json: bool = Field(True, env="LOG_JSON")
+    log_json: bool = Field(True, env="LOG_JSON")    
 
     class Config:
         env_file = ".env"
