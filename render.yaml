@@ -1,7 +1,7 @@
 services:
   - type: web
     name: website-rag-backend
-    env: python
+    env: docker
     dockerfilePath: backend/Dockerfile
     dockerContext: .
     autoDeploy: true
