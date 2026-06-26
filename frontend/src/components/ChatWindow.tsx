@@ -162,7 +162,6 @@ export function ChatWindow() {
               className="max-h-60 min-h-[44px] w-full resize-none bg-transparent px-3 py-3 text-sm focus:outline-none scrollbar-thin"
               rows={1}
               style={{
-                height: "44px",
                 height: `${Math.min(
                   240,
                   Math.max(44, input.split("\n").length * 24 + 20)
