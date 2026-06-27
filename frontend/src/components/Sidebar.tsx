@@ -74,17 +74,21 @@ function SidebarContent({ isMobile }: SidebarProps) {
           <Plus className="h-4 w-4" />
           New Chat
         </Button>
-        <Button
-          asChild
-          variant="outline"
-          className="w-full justify-start gap-2 h-11"
-          onClick={() => { if (isMobile) setSidebarOpen(false); }}
+        <Link
+          href="/index"
+          onClick={() => {
+            if (isMobile) setSidebarOpen(false);
+          }}
+          className="block"
         >
-          <Link href="/index">
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2 h-11"
+          >
             <Database className="h-4 w-4" />
             Index Website
-          </Link>
-        </Button>
+          </Button>
+        </Link>
       </div>
 
       {/* Search */}

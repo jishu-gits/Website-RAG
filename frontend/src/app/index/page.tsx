@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
 "use client";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { postIngest, getStatus } from "@/services/api";
+const { postIngest, getStatus } = await import("@/services/api");
 
 export default function IndexWebsitePage() {
   const [url, setUrl] = useState("");
@@ -46,9 +47,9 @@ export default function IndexWebsitePage() {
     try {
       await postIngest([trimmed], 2);
       clearTimeout(timer);
-      
+
       setStatus("success");
-      
+
       try {
         const stats = await getStatus();
         setMessage(`✅ Website indexed successfully. Indexed vectors: ${stats.vector_store_size}`);
@@ -92,9 +93,9 @@ export default function IndexWebsitePage() {
             className="w-full"
             required
           />
-          <Button 
-            type="submit" 
-            className="w-full" 
+          <Button
+            type="submit"
+            className="w-full"
             disabled={status === "crawling" || status === "embedding"}
           >
             Index Website
