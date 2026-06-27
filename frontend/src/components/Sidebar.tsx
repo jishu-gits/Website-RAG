@@ -10,6 +10,7 @@ import {
   Database,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatDate } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -42,6 +43,8 @@ function SidebarContent({ isMobile }: SidebarProps) {
     renameConversation,
   } = useConversationContext();
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [renameValue, setRenameValue] = React.useState("");
@@ -49,11 +52,13 @@ function SidebarContent({ isMobile }: SidebarProps) {
   const handleCreate = () => {
     createConversation();
     if (isMobile) setSidebarOpen(false);
+    if (pathname !== "/chat" && pathname !== "/") router.push("/chat");
   };
 
   const handleSelect = (id: string) => {
     setActiveId(id);
     if (isMobile) setSidebarOpen(false);
+    if (pathname !== "/chat" && pathname !== "/") router.push("/chat");
   };
 
   const handleRenameSubmit = () => {

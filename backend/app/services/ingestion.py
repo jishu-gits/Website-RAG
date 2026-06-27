@@ -99,7 +99,12 @@ async def crawl_domain(
     visited: Set[str] = set()
     pending: List[tuple[str, int]] = [(url, 0) for url in seed_urls]
 
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with httpx.AsyncClient(
+        follow_redirects=True,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; WebsiteRAGBot/1.0; +https://github.com/jishu-gits/Website-RAG)"
+        },
+    ) as client:
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
         async def worker(url: str, depth: int) -> List[tuple[str, int]]:
