@@ -45,17 +45,29 @@ export default function IndexWebsiteClient() {
     }, 4000);
 
     try {
-      await postIngest([trimmed], 2);
+      const ingestResult = await postIngest([trimmed], 2);
       clearTimeout(timer);
 
       setStatus("success");
 
       try {
         const stats = await getStatus();
-        setMessage(`✅ Website indexed successfully. Indexed vectors: ${stats.vector_store_size}`);
+        setMessage(
+          `✅ Website indexed successfully.\n` +
+          `Pages crawled: ${ingestResult.pages_crawled ?? "?"} | ` +
+          `Chunks: ${ingestResult.chunks_created ?? "?"} | ` +
+          `Embedded: ${ingestResult.chunks_embedded ?? "?"} | ` +
+          `Indexed: ${ingestResult.chunks_indexed ?? "?"} | ` +
+          `Vector store: ${stats.vector_store_size}`
+        );
       } catch (statusErr) {
-        // Fallback if status fetch fails
-        setMessage(`✅ Website indexed successfully.`);
+        setMessage(
+          `✅ Website indexed successfully.\n` +
+          `Pages crawled: ${ingestResult.pages_crawled ?? "?"} | ` +
+          `Chunks: ${ingestResult.chunks_created ?? "?"} | ` +
+          `Embedded: ${ingestResult.chunks_embedded ?? "?"} | ` +
+          `Indexed: ${ingestResult.chunks_indexed ?? "?"}`
+        );
       }
 
     } catch (err) {
