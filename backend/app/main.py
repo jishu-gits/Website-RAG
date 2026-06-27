@@ -35,6 +35,13 @@ async def lifespan(app: FastAPI):
         host=settings.api_host,
         port=settings.api_port,
     )
+
+    # Validate embedding model on startup — fail fast if the configured
+    # model is retired, unsupported, or the API is unreachable.
+    from app.services.embeddings import validate_embedding_model
+
+    await validate_embedding_model()
+
     yield
     # Persist vector store on graceful shutdown
     from app.services.vector_store import vector_store

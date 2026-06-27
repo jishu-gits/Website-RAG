@@ -1,26 +1,40 @@
 # backend/app/services/embeddings.py
-"""Embedding service using Google Generative AI.
+"""Embedding service using the Google GenAI SDK.
 
 Converts ``DocumentChunk`` objects into dense vector embeddings via Google's
-``text-embedding-004`` model.  Features:
+embedding models.  Features:
 
 - **Batching** – chunks are grouped into batches of configurable size to
-  respect API rate limits and reduce round‑trips.
-- **Caching** – an in‑memory LRU cache keyed on deterministic ``chunk_id``
-  avoids re‑computing embeddings for content that has already been processed.
+  respect API rate limits and reduce round-trips.
+- **Caching** – an in-memory dict keyed on deterministic ``chunk_id``
+  avoids re-computing embeddings for content that has already been processed.
 - **Error handling** – transient API errors are retried with exponential
-  back‑off; permanent failures are logged and the chunk is skipped.
+  back-off; permanent failures are logged and propagated.
+- **Task-type separation** – document embeddings use ``RETRIEVAL_DOCUMENT``,
+  query embeddings use ``RETRIEVAL_QUERY`` so vectors are in the correct
+  subspace for asymmetric similarity search.
+- **Startup validation** – ``validate_embedding_model()`` fires a single
+  test embedding on startup and fails fast if the configured model is
+  unsupported or unreachable.
+
+SDK migration notes (2026-06):
+  - Replaced deprecated ``google-generativeai`` (EOL Nov 2025) with ``google-genai``.
+  - Replaced retired model ``text-embedding-004`` (shut down Jan 2026) with
+    ``gemini-embedding-001``.
+  - Old API: ``genai.embed_content(model=..., content=..., task_type=...)``
+    → returned ``{"embedding": [[...], ...]}``
+  - New API: ``client.models.embed_content(model=..., contents=..., config=...)``
+    → returns object with ``.embeddings[i].values``
 """
 
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import time
-from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from app.core.config import settings
 from app.core.logger import logger
@@ -28,11 +42,11 @@ from app.services.chunking import DocumentChunk
 
 
 # ---------------------------------------------------------------------------
-# Module‑level initialisation
+# Module-level initialisation
 # ---------------------------------------------------------------------------
-genai.configure(api_key=settings.gemini_api_key.get_secret_value())
+_client = genai.Client(api_key=settings.gemini_api_key.get_secret_value())
 
-# Simple in‑memory cache: chunk_id → embedding vector
+# Simple in-memory cache: chunk_id → embedding vector
 _embedding_cache: Dict[str, List[float]] = {}
 
 
@@ -42,7 +56,7 @@ _embedding_cache: Dict[str, List[float]] = {}
 def _cache_key(chunk: DocumentChunk) -> str:
     """Return a stable cache key for *chunk*.
 
-    Uses the pre‑computed ``chunk_id`` from metadata so identical content at
+    Uses the pre-computed ``chunk_id`` from metadata so identical content at
     the same URL always maps to the same key.
     """
     return chunk.metadata.chunk_id
@@ -57,25 +71,39 @@ def _batches(items: List[DocumentChunk], size: int):
 async def _embed_texts_with_retry(
     texts: List[str],
     *,
+    task_type: str = "RETRIEVAL_DOCUMENT",
     max_retries: int = 3,
     base_delay: float = 1.0,
 ) -> List[List[float]]:
-    """Call the Google embedding API with exponential back‑off on failure.
+    """Call the Google embedding API with exponential back-off on failure.
+
+    Parameters
+    ----------
+    texts:
+        The texts to embed.
+    task_type:
+        ``"RETRIEVAL_DOCUMENT"`` for document embeddings,
+        ``"RETRIEVAL_QUERY"`` for query embeddings.
 
     Returns a list of embedding vectors in the same order as *texts*.
     """
     last_exc: Optional[Exception] = None
     for attempt in range(1, max_retries + 1):
         try:
-            # google‑generativeai exposes a synchronous helper; run it in a
-            # thread so we don't block the event loop.
+            # The google-genai client is synchronous; run it in a thread
+            # so we don't block the event loop.
             result = await asyncio.to_thread(
-                genai.embed_content,
-                model=f"models/{settings.embedding_model}",
-                content=texts,
-                task_type="retrieval_document",
+                _client.models.embed_content,
+                model=settings.embedding_model,
+                contents=texts,
+                config=types.EmbedContentConfig(
+                    task_type=task_type,
+                    output_dimensionality=settings.embedding_dimension,
+                ),
             )
-            return result["embedding"]
+            # New SDK returns: result.embeddings → list of ContentEmbedding
+            # Each ContentEmbedding has a .values attribute (list[float]).
+            return [emb.values for emb in result.embeddings]
         except Exception as exc:
             last_exc = exc
             delay = base_delay * (2 ** (attempt - 1))
@@ -90,6 +118,72 @@ async def _embed_texts_with_retry(
     # All retries exhausted
     logger.error("Embedding API failed after retries", error=str(last_exc))
     raise RuntimeError(f"Embedding API failed: {last_exc}") from last_exc
+
+
+# ---------------------------------------------------------------------------
+# Startup validation
+# ---------------------------------------------------------------------------
+async def validate_embedding_model() -> None:
+    """Validate the configured embedding model on startup.
+
+    Fires one small embedding request.  If the model is unsupported or the
+    API is unreachable, raises a descriptive exception so the app fails fast
+    instead of silently breaking on the first user query.
+
+    Also logs:
+    - Installed SDK version
+    - Configured embedding model
+    - Whether the API is reachable
+    - Returned vector dimension
+    """
+    sdk_version = getattr(genai, "__version__", "unknown")
+    model_name = settings.embedding_model
+    expected_dim = settings.embedding_dimension
+
+    logger.info(
+        "Embedding startup validation",
+        sdk="google-genai",
+        sdk_version=sdk_version,
+        model=model_name,
+        expected_dimension=expected_dim,
+    )
+
+    try:
+        vectors = await _embed_texts_with_retry(
+            ["startup validation test"],
+            task_type="RETRIEVAL_DOCUMENT",
+            max_retries=2,
+            base_delay=0.5,
+        )
+        actual_dim = len(vectors[0])
+
+        if actual_dim != expected_dim:
+            raise RuntimeError(
+                f"Embedding dimension mismatch: model '{model_name}' returned "
+                f"{actual_dim}-dim vectors but EMBEDDING_DIMENSION is set to "
+                f"{expected_dim}. Update EMBEDDING_DIMENSION in your environment "
+                f"or set output_dimensionality accordingly."
+            )
+
+        logger.info(
+            "Embedding API reachable — validation passed",
+            model=model_name,
+            dimension=actual_dim,
+        )
+
+    except RuntimeError:
+        # Re-raise dimension mismatch or API failure directly
+        raise
+    except Exception as exc:
+        raise RuntimeError(
+            f"Embedding model '{model_name}' is not available or the API is "
+            f"unreachable.  Original error: {exc}\n\n"
+            f"Possible fixes:\n"
+            f"  1. Check that GEMINI_API_KEY is valid.\n"
+            f"  2. Change EMBEDDING_MODEL to a supported model "
+            f"(e.g. 'gemini-embedding-001').\n"
+            f"  3. Verify network connectivity to the Gemini API."
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +241,10 @@ async def embed_chunks(
     embedded_so_far = 0
     for batch in _batches(uncached_chunks, batch_sz):
         texts = [c.text for c in batch]
-        vectors = await _embed_texts_with_retry(texts)
+        vectors = await _embed_texts_with_retry(
+            texts,
+            task_type="RETRIEVAL_DOCUMENT",
+        )
 
         for chunk, vector in zip(batch, vectors):
             key = _cache_key(chunk)
@@ -168,7 +265,7 @@ async def embed_chunks(
 
 
 def clear_cache() -> int:
-    """Flush the in‑memory embedding cache.  Returns the number of evicted entries."""
+    """Flush the in-memory embedding cache.  Returns the number of evicted entries."""
     count = len(_embedding_cache)
     _embedding_cache.clear()
     logger.info("Embedding cache cleared", evicted=count)
@@ -178,13 +275,14 @@ def clear_cache() -> int:
 async def embed_query(query: str) -> List[float]:
     """Embed a single query string for retrieval.
 
-    Uses ``task_type="retrieval_query"`` so the resulting vector is in the
-    correct space relative to document embeddings.
+    Uses ``task_type="RETRIEVAL_QUERY"`` so the resulting vector is in the
+    correct subspace relative to document embeddings (which use
+    ``RETRIEVAL_DOCUMENT``).
 
     Parameters
     ----------
     query:
-        The user's natural‑language search query.
+        The user's natural-language search query.
 
     Returns
     -------
@@ -193,9 +291,9 @@ async def embed_query(query: str) -> List[float]:
     """
     result = await _embed_texts_with_retry(
         [query],
+        task_type="RETRIEVAL_QUERY",
     )
     # _embed_texts_with_retry returns a list of vectors; take the first.
     vector = result[0]
     logger.debug("Query embedded", query=query[:60], dim=len(vector))
     return vector
-

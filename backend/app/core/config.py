@@ -23,7 +23,10 @@ class Settings(BaseSettings):
     chunk_size: int = Field(1000, env="CHUNK_SIZE")
     chunk_overlap: int = Field(200, env="CHUNK_OVERLAP")
     # ---- Embedding settings ----
-    embedding_model: str = Field("text-embedding-004", env="EMBEDDING_MODEL")
+    # Note: text-embedding-004 was retired Jan 2026. Use gemini-embedding-001
+    # or check https://ai.google.dev/gemini-api/docs/models#embedding for
+    # the current model list.
+    embedding_model: str = Field("gemini-embedding-001", env="EMBEDDING_MODEL")
     embedding_batch_size: int = Field(100, env="EMBEDDING_BATCH_SIZE")
     embedding_dimension: int = Field(768, env="EMBEDDING_DIMENSION")
     # ---- Vector store settings ----
