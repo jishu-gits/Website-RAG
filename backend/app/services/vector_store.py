@@ -89,8 +89,10 @@ class FAISSVectorStore(BaseVectorStore):
         vectors_to_add: List[List[float]] = []
         metas_to_add: List[Dict[str, Any]] = []
 
+        print(f"INSTRUMENT: incoming pair count = {len(pairs)}")
         for chunk, vector in pairs:
             cid = chunk.metadata.chunk_id
+            print(f"INSTRUMENT: chunk_id = {cid}")
             if cid in self._id_to_row:
                 logger.debug("Duplicate chunk skipped in vector store", chunk_id=cid)
                 continue
@@ -99,14 +101,20 @@ class FAISSVectorStore(BaseVectorStore):
             meta["text"] = chunk.text
             metas_to_add.append(meta)
 
+        print(f"INSTRUMENT: current len(_id_to_row) = {len(self._id_to_row)}")
+        print(f"INSTRUMENT: vectors_to_add length = {len(vectors_to_add)}")
+
         if not vectors_to_add:
+            print("INSTRUMENT: value returned by add() = 0")
             return 0
 
         arr = np.array(vectors_to_add, dtype=np.float32)
         faiss.normalize_L2(arr)
 
         start_row = self._index.ntotal
+        print(f"INSTRUMENT: index.ntotal BEFORE add() = {start_row}")
         self._index.add(arr)
+        print(f"INSTRUMENT: index.ntotal AFTER add() = {self._index.ntotal}")
 
         for offset, meta in enumerate(metas_to_add):
             row = start_row + offset
@@ -114,6 +122,7 @@ class FAISSVectorStore(BaseVectorStore):
             self._id_to_row[meta["chunk_id"]] = row
 
         logger.info("Vectors added to FAISS", added=len(vectors_to_add), total=self._index.ntotal)
+        print(f"INSTRUMENT: value returned by add() = {len(vectors_to_add)}")
         return len(vectors_to_add)
 
     def search(self, query_vector: List[float], top_k: int = 5) -> List[Dict[str, Any]]:

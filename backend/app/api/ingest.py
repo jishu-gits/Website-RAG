@@ -54,6 +54,7 @@ async def ingest(body: IngestRequest) -> IngestResponse:
 
     # 4. Index in FAISS
     added = vector_store.add(pairs)
+    print(f"INSTRUMENT /api/ingest: vector_store.size = {vector_store.size}")
     vector_store.save()
 
     response = IngestResponse(

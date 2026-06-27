@@ -40,6 +40,8 @@ async def health_check() -> HealthResponse:
     ),
 )
 async def system_status() -> SystemStatusResponse:
+    print(f"INSTRUMENT /api/status: vector_store.size = {vector_store.size}")
+    print(f"INSTRUMENT /api/status: id(vector_store) = {id(vector_store)}")
     logger.info("System status requested")
     return SystemStatusResponse(
         status="ok",

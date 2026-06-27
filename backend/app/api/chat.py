@@ -18,6 +18,8 @@ from app.services.rag_pipeline import ask, ask_stream
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
+from app.services.vector_store import vector_store
+
 @router.post(
     "",
     response_model=ChatResponse,
@@ -31,6 +33,8 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
     ),
 )
 async def chat(body: ChatRequest):
+    print(f"INSTRUMENT /api/chat: vector_store.size = {vector_store.size}")
+    print(f"INSTRUMENT /api/chat: id(vector_store) = {id(vector_store)}")
     logger.info("Chat request", query=body.query[:80], stream=body.stream)
 
     if body.stream:
