@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     cors_origins: str = Field("http://localhost:3000", env="CORS_ORIGINS")
     # ---- Gemini settings ----
     gemini_api_key: SecretStr = Field(..., env="GEMINI_API_KEY")
-    gemini_model: str = Field("gemini-1.5-pro", env="GEMINI_MODEL")
+    gemini_model: str = Field("gemini-3.5-flash", env="GEMINI_MODEL")
     gemini_temperature: float = Field(0.3, env="GEMINI_TEMPERATURE")
     gemini_max_output_tokens: int = Field(2048, env="GEMINI_MAX_OUTPUT_TOKENS")
     # ---- Chunking settings ----
