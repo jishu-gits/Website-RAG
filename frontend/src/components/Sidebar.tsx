@@ -75,7 +75,7 @@ function SidebarContent({ isMobile }: SidebarProps) {
           New Chat
         </Button>
         <Link
-          href="/index"
+          href="/indexing"
           onClick={() => {
             if (isMobile) setSidebarOpen(false);
           }}
