@@ -15,5 +15,15 @@ services:
       - key: VECTOR_STORE_PATH
         value: "vector_store"
 
+      # BUG 4 FIX: The previous value contained a literal placeholder string
+      # "https://your-vercel-domain.vercel.app" which made FastAPI's CORS middleware
+      # reject all real requests from the Vercel frontend.
+      #
+      # ACTION REQUIRED: Set this value in the Render dashboard (not here in YAML)
+      # for security. Go to: Render Dashboard → website-rag-backend → Environment.
+      # Set CORS_ORIGINS to your actual Vercel deployment URL, e.g.:
+      #   https://website-rag-abc123.vercel.app,http://localhost:3000
+      #
+      # Using sync: false means Render will NOT overwrite the dashboard value on deploy.
       - key: CORS_ORIGINS
-        value: "https://your-vercel-domain.vercel.app,http://localhost:3000"
+        sync: false

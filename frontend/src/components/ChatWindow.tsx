@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Send, Square, ArrowDown, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useConversation } from "@/hooks/useConversation";
+import { useConversationContext } from "@/providers/ConversationProvider";
 import { useChatStream } from "@/hooks/useChatStream";
 import { MessageBubble } from "@/components/MessageBubble";
 import { Button } from "@/components/ui/Button";
@@ -11,12 +11,23 @@ import { ScrollArea } from "@/components/ui/ScrollArea";
 import { cn } from "@/lib/utils";
 
 export function ChatWindow() {
+  // BUG 1 FIX: Use the shared context instead of an independent hook instance.
+  // useConversation() created isolated useState — this always reads from the Provider.
   const {
     activeConversation,
     addMessage,
     updateLastAssistantMessage,
     clearMessages,
-  } = useConversation();
+  } = useConversationContext();
+
+  // Dev diagnostics — only logs in development, removed in production build.
+  if (process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console
+    console.debug(
+      "[ChatWindow] activeConversation:",
+      activeConversation?.id ?? "null",
+    );
+  }
 
   const { isGenerating, send, stop, regenerate } = useChatStream({
     conversationId: activeConversation?.id ?? null,

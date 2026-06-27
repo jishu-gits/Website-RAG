@@ -37,7 +37,27 @@ export function useChatStream({
 
   const send = useCallback(
     (query: string) => {
-      if (!conversationId || !query.trim() || isGenerating) return;
+      // BUG 1/2 FIX: Replace silent early returns with explicit diagnostics.
+      // Previously, if conversationId was null, send() returned with no indication.
+      if (!conversationId) {
+        console.error(
+          "[useChatStream] send() called but conversationId is null. " +
+            "This means activeConversation is null in ChatWindow. " +
+            "Check that ConversationProvider is mounted above ChatWindow in the tree.",
+        );
+        return;
+      }
+      if (!query.trim()) return;
+      if (isGenerating) return;
+
+      if (process.env.NODE_ENV === "development") {
+        console.log(
+          "[useChatStream] send() → conversationId:",
+          conversationId,
+          "query:",
+          query.trim().slice(0, 60),
+        );
+      }
 
       setError(null);
 

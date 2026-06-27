@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ScrollArea } from "@/components/ui/ScrollArea";
 import { Sheet, SheetContent } from "@/components/ui/Sheet";
-import { useConversation } from "@/hooks/useConversation";
+import { useConversationContext } from "@/providers/ConversationProvider";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +38,7 @@ function SidebarContent({ isMobile }: SidebarProps) {
     setActiveId,
     deleteConversation,
     renameConversation,
-  } = useConversation();
+  } = useConversationContext();
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
 
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
