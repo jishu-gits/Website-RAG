@@ -8,8 +8,6 @@ import { useChatStream } from "@/hooks/useChatStream";
 import { MessageBubble } from "@/components/MessageBubble";
 import { Button } from "@/components/ui/Button";
 import { ScrollArea } from "@/components/ui/ScrollArea";
-import { Input } from "@/components/ui/Input";
-import { postIngest, getStatus } from "@/services/api";
 import { cn } from "@/lib/utils";
 
 export function ChatWindow() {
@@ -38,12 +36,6 @@ export function ChatWindow() {
   });
 
   const [input, setInput] = React.useState("");
-  const [url, setUrl] = React.useState("");
-  const [status, setStatus] = React.useState<"idle" | "crawling" | "embedding" | "success" | "error">("idle");
-  const [message, setMessage] = React.useState("Ready");
-  const [errorMessage, setErrorMessage] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [showScrollBottom, setShowScrollBottom] = React.useState(false);
   const viewportRef = React.useRef<HTMLDivElement>(null);
@@ -101,96 +93,8 @@ export function ChatWindow() {
     }
   };
 
-  const handleIngestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = url.trim();
-
-    if (!trimmed) {
-      setErrorMessage("Please enter a valid URL.");
-      setStatus("error");
-      return;
-    }
-
-    try {
-      new URL(trimmed);
-      if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
-        throw new Error();
-      }
-    } catch {
-      setErrorMessage("Please enter a valid URL.");
-      setStatus("error");
-      return;
-    }
-
-    setErrorMessage("");
-    setStatus("crawling");
-    setMessage("Crawling website...");
-    setLoading(true);
-
-    const timer = setTimeout(() => {
-      setStatus("embedding");
-      setMessage("Creating embeddings...");
-    }, 3500);
-
-    try {
-      await postIngest([trimmed], 2);
-      clearTimeout(timer);
-      setStatus("success");
-      
-      try {
-        const stats = await getStatus();
-        setMessage(`Website indexed successfully. Indexed vectors: ${stats.vector_store_size}`);
-      } catch (statusErr) {
-        setMessage(`Website indexed successfully.`);
-      }
-    } catch (err) {
-      clearTimeout(timer);
-      setStatus("error");
-      setMessage("❌ Failed to index website.");
-      setErrorMessage(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="flex flex-col h-full relative bg-background">
-      {/* Index Website Panel */}
-      <div className="bg-card border-b p-4 shadow-sm z-10 shrink-0">
-        <div className="max-w-3xl mx-auto space-y-2">
-          <h3 className="font-semibold text-sm">Index Website</h3>
-          <form onSubmit={handleIngestSubmit} className="flex gap-2">
-            <Input
-              type="url"
-              placeholder="https://example.com"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value);
-                if (status === "error") {
-                  setStatus("idle");
-                  setMessage("Ready");
-                  setErrorMessage("");
-                }
-              }}
-              disabled={loading}
-              className="flex-1 bg-background"
-              required
-            />
-            <Button type="submit" disabled={loading}>
-              Index Website
-            </Button>
-          </form>
-          <div className="text-sm text-muted-foreground flex items-center justify-between">
-            <span>Status: {message}</span>
-          </div>
-          {status === "error" && errorMessage && (
-            <div className="text-xs text-destructive bg-destructive/10 p-2 rounded">
-              {errorMessage}
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Messages Area */}
       <ScrollArea
         className="flex-1"
