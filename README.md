@@ -1,145 +1,263 @@
-<div align="center">
-  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/bot.svg" alt="RAG Bot Logo" width="120" />
-  
-  # Website RAG Assistant
+# Website RAG Assistant
 
-  **A production-ready Retrieval-Augmented Generation (RAG) assistant for website content.**
+A production-ready, full-stack Retrieval-Augmented Generation (RAG) assistant designed to crawl websites, index their content, and provide contextual answers with precise source citations. 
 
-  [![CI Pipeline](https://github.com/your-username/website-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/website-rag/actions/workflows/ci.yml)
-  [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-  [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](https://python.org)
-  [![Next.js](https://img.shields.io/badge/Next.js-14-000000.svg?logo=next.js&logoColor=white)](https://nextjs.org)
-
-  [Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Deployment](#deployment) • [Roadmap](#future-roadmap)
-</div>
+The application utilizes a **FastAPI** backend for heavy lifting—crawling, semantic chunking, generating embeddings, and vector similarity search—and a modern **Next.js** frontend with a responsive, dark-mode-first chat interface inspired by state-of-the-art AI applications.
 
 ---
 
-## 📖 Project Overview
+## Features
 
-The **Website RAG Assistant** is a modern, modular, and production-ready application designed to crawl websites, index their content, and allow users to ask questions against that content using AI. 
-
-It grounds its answers in the source material, providing precise citations for every claim. Built with **FastAPI**, **LangChain**, **Google Gemini**, and a beautiful **Next.js** frontend inspired by Perplexity and Claude.
-
-## ✨ Features
-
-- **Intelligent Ingestion:** Recursively crawls domains, extracts clean text, and chunks content intelligently while preserving semantic boundaries.
-- **Precision RAG:** Uses Google Generative AI embeddings and a lightning-fast local FAISS vector store.
-- **Citations & Grounding:** Responses include direct links to the source documentation used by the LLM.
-- **Streaming UI:** Real-time Server-Sent Events (SSE) streaming with animated typing indicators and auto-scrolling.
-- **Premium Design:** Glassmorphism, TailwindCSS styling, Framer Motion animations, and full dark/light mode support.
-- **Production Secure:** Non-root Docker containers, strict CORS, rate-limiting ready, input validation via Pydantic, and secure headers.
-- **Developer Experience:** CI/CD via GitHub Actions, strict TypeScript typing, JSON structured logging.
+- **Website Crawling**: Asynchronous recursive web crawler (using `BeautifulSoup4` and `httpx`) that respects domain boundaries and obeys a user-defined max crawl depth. Incorporates browser-like `User-Agent` headers to successfully bypass anti-bot scrapers (such as Wikipedia).
+- **Intelligent Chunking**: Implements LangChain's `RecursiveCharacterTextSplitter` to semantically divide raw HTML body text by structured paragraphs, sentences, and words. Generates deterministic SHA-256 hashes to prevent duplicate ingestion.
+- **Gemini Embeddings**: Integrates the official `google-genai` SDK to convert text chunks into dense 768-dimensional vectors using `gemini-embedding-001`. Features thread-pooled batching, exponential back-off retries for rate limits, and an in-memory caching layer.
+- **Gemini Chat**: Answers user queries dynamically using `gemini-3.5-flash` grounded strictly on retrieved website context, automatically declining to answer if context is insufficient.
+- **FAISS Vector Search**: Leverages local `faiss-cpu` vector indexes using L2-normalized Inner Product similarity (`IndexFlatIP`) for rapid vector similarity calculations coupled with JSON-based sidecar metadata persistence.
+- **Source Citation Retrieval**: Automatically extracts cited source URLs inline and appends a "Sources" list containing active links to the pages the LLM used for answers.
+- **Streaming Responses**: Real-time streaming via Server-Sent Events (SSE) from FastAPI to the frontend, complete with active generation cancellation capabilities.
+- **Website Indexing UI**: Dedicated frontend interface (`/indexing`) providing URL validation, real-time crawler states, and a breakdown of crawled pages, chunks created, and vectors indexed.
+- **Conversation Management**: Sidebar history supporting custom conversation titles, renaming, deleting, and state synchronization across components powered by React Context and Zustand.
+- **Responsive UI**: Sleek layout crafted with Vanilla CSS and Tailwind, supporting collapsible sidebars, smooth desktop layouts, and a responsive mobile drawer.
+- **Dark Mode**: Comprehensive visual consistency utilizing light and dark theme configurations with clean CSS variables.
+- **Health Monitoring**: System status metrics endpoint returning vector store sizes, embedding cache hit metrics, configuration variables, and general liveness stats.
 
 ---
 
-## 🏗️ Architecture
+## System Architecture
+
+The following diagram illustrates the flow of data from ingestion (crawling/indexing) through query retrieval and generation:
 
 ```mermaid
-graph TD;
-    Client[Next.js Client] -->|REST/SSE| API[FastAPI Backend];
-    API -->|Ingest/Crawl| Crawler[Web Crawler];
-    API -->|Embeddings| GeminiEmbed[Gemini Embedding API];
-    API -->|Generation| GeminiLLM[Gemini LLM];
-    API <-->|Vector Search| FAISS[(FAISS Vector Store)];
-    Crawler --> FAISS;
+graph TD
+    %% Ingest Pipeline
+    UserIngest[User enters URL in Indexing UI] -->|POST /api/ingest| IngestRoute[FastAPI Ingest Route]
+    IngestRoute -->|Execute Crawl| Crawler[Async Crawler (BeautifulSoup4 + httpx)]
+    Crawler -->|Extract raw HTML/Text| Chunker[Semantic Chunker (RecursiveCharacterTextSplitter)]
+    Chunker -->|Compute Text Vectors| EmbedPipe[Embedding Pipeline (gemini-embedding-001)]
+    EmbedPipe -->|Save Vector Index| FAISS[(FAISS Vector Store)]
+    
+    %% RAG Chat Query Pipeline
+    UserQuery[User types question in Chat UI] -->|POST /api/chat (stream=true)| ChatRoute[FastAPI Chat Route]
+    ChatRoute -->|Embed Query| EmbedQuery[Query Embedding (RETRIEVAL_QUERY)]
+    EmbedQuery -->|Cosine Similarity Search| FAISS
+    FAISS -->|Retrieve Top K + Metadata| Retriever[Metadata Filter / MMR Retriever]
+    Retriever -->|Construct Grounded Prompt| PromptEngine[Prompt Construction]
+    PromptEngine -->|Request Completion| GeminiGen[Gemini LLM (gemini-3.5-flash)]
+    GeminiGen -->|Stream SSE Event Chunks| SSE[Response with Citations]
+    SSE -->|Render Inline Markdown| UserQuery
 ```
-
-### Technology Stack
-- **Frontend:** Next.js 14, React 18, TailwindCSS, shadcn/ui, Zustand, Framer Motion
-- **Backend:** FastAPI, Python 3.12, Uvicorn, Pydantic
-- **AI & RAG:** LangChain, Google Gemini API (`gemini-1.5-pro`), FAISS
-- **Infrastructure:** Docker, Docker Compose, GitHub Actions, Vercel, Render
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## Technology Stack
 
-The easiest way to run the entire stack locally is using Docker Compose.
-
-### 1. Prerequisites
-- Docker and Docker Compose
-- A Google Gemini API Key
-
-### 2. Environment Configuration
-Copy the example environment file and fill in your Gemini API key:
-```bash
-cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
-```
-
-### 3. Run with Docker
-```bash
-docker-compose up --build
-```
-- **Frontend** will be available at: `http://localhost:3000`
-- **Backend API** will be available at: `http://localhost:8000/api`
-- **Swagger Docs** will be available at: `http://localhost:8000/docs`
-
----
-
-## ☁️ Deployment
-
-The project is pre-configured for modern PaaS deployments using Infrastructure-as-Code principles.
-
-### Frontend (Vercel)
-The frontend is optimized for Vercel's edge network.
-1. Connect your GitHub repository to Vercel.
-2. Vercel will automatically detect the Next.js framework.
-3. Set the `NEXT_PUBLIC_API_URL` environment variable to your deployed backend URL (e.g., `https://my-rag-backend.onrender.com/api`).
-4. (Optional) Alternatively, use the included `vercel.json` to handle proxying automatically if you prefer.
-
-### Backend (Render)
-The backend requires a persistent disk for the FAISS vector index. This is configured in `render.yaml`.
-1. In the Render Dashboard, click **New > Blueprint**.
-2. Connect your GitHub repository.
-3. Render will parse the `render.yaml` and provision a Web Service with an attached 1GB Persistent Disk (`/data`).
-4. Set the `GEMINI_API_KEY` securely in the Render dashboard.
-
-### CI/CD
-This repository includes two GitHub Actions workflows:
-- **`ci.yml`**: Runs on every push/PR to `main`. Executes `flake8`, `mypy`, `npm run lint`, and tests.
-- **`deploy.yml`**: Automates deployments to Vercel and Render using CLI tokens and Deploy Hooks.
+- **Languages**: Python (3.12+), TypeScript, CSS, HTML
+- **Frontend**: 
+  - Next.js 14 (App Router)
+  - React 18
+  - Zustand (UI state)
+  - React Context (Conversation state)
+  - Framer Motion (Animations)
+  - TailwindCSS
+- **Backend**:
+  - FastAPI (REST API & Server-Sent Events)
+  - Uvicorn (ASGI server)
+  - Pydantic v2 (Data validation and settings)
+  - Dependency Injector (IoC Container)
+  - Structlog (Structured JSON logging)
+- **AI & Vector DB**:
+  - Google Gen AI SDK (`google-genai` package)
+  - LangChain (for `RecursiveCharacterTextSplitter`)
+  - FAISS (`faiss-cpu`) for local, fast vector storage
+- **Deployment**:
+  - Vercel (Frontend Hosting)
+  - Render (Backend Web Service with Persistent Disk)
+  - Docker & Docker Compose (Local Orchestration)
 
 ---
 
-## 📁 Folder Structure
+## Folder Structure
 
 ```text
 website-rag/
-├── .github/workflows/       # CI/CD pipelines
-├── backend/                 # FastAPI Application
+├── backend/
 │   ├── app/
-│   │   ├── api/             # Routers (chat, ingest, retrieve)
-│   │   ├── core/            # Config, Logger, Dependency Injection
-│   │   └── services/        # LangChain, FAISS, Gemini logic
-│   ├── Dockerfile           # Secure non-root container
-│   └── requirements.txt
-├── frontend/                # Next.js Application
+│   │   ├── api/             # HTTP Route Handlers (chat, ingest, health, retrieve)
+│   │   │   ├── schemas.py   # Pydantic input/output validation models
+│   │   ├── core/            # App lifecycle hooks, logger configurations, settings
+│   │   │   ├── config.py    # Environment variable loading & default configurations
+│   │   ├── services/        # Business logic handlers
+│   │   │   ├── chunking.py     # Document partition logic
+│   │   │   ├── embeddings.py   # Google GenAI embedding generator
+│   │   │   ├── ingestion.py    # Recursive web crawler
+│   │   │   ├── rag_pipeline.py # Grounded prompt generation & chat coordinator
+│   │   │   ├── retrieval.py    # Similarity & MMR search logic
+│   │   │   ├── storage.py      # Persistence file handlers
+│   │   │   └── vector_store.py # Local FAISS integration and persistence
+│   │   └── main.py          # ASGI application entry point & middlewares
+│   ├── Dockerfile           # Multi-stage production-ready build
+│   └── requirements.txt     # Locked python dependencies
+├── frontend/
 │   ├── src/
-│   │   ├── app/             # App Router pages and layout
-│   │   ├── components/      # React components and shadcn/ui
-│   │   ├── hooks/           # useChatStream, useConversation
-│   │   └── services/        # API wrapper
-│   └── Dockerfile           # Next.js standalone container
-├── .env.example             # Environment template
-├── docker-compose.yml       # Local orchestration
-├── render.yaml              # Render IaC blueprint
-└── vercel.json              # Vercel configuration
+│   │   ├── app/             # Next.js App Router (Layouts & Routes)
+│   │   │   ├── chat/        # Chat window view
+│   │   │   ├── indexing/    # Website index administrator dashboard
+│   │   │   ├── globals.css  # Application style rules
+│   │   │   └── page.tsx     # Application redirect logic
+│   │   ├── components/      # UI Components (Sidebar, ChatWindow, ui/ components)
+│   │   ├── hooks/           # Custom React hooks (useChatStream, useConversation)
+│   │   ├── lib/             # Utility clients and helper configurations
+│   │   ├── providers/       # State providers (ThemeProvider, ConversationProvider)
+│   │   ├── services/        # Frontend API client wrappers
+│   │   └── stores/          # Zustand global stores (Sidebar state)
+│   └── Dockerfile           # Node production server configuration
+├── docker-compose.yml       # Local development multi-container setup
+├── render.yaml              # Infrastructure-as-code for Render
+└── vercel.json              # Vercel proxy configurations
 ```
 
 ---
 
-## 🗺️ Future Roadmap
+## Installation & Setup
 
-The codebase is abstracted to easily support future enhancements:
-- **Managed Vector Databases:** `BaseVectorStore` allows swapping FAISS for Pinecone, Qdrant, or Milvus simply by injecting a new class.
-- **Hybrid Search:** Combine BM25 keyword search with vector similarity for better retrieval recall.
-- **Authentication:** Add OAuth2 via Auth0 or Clerk.
-- **PostgreSQL Metadata:** Move conversation history from local storage to a relational database.
+### Environment Variables
+Configure a `.env` file in the root directory. Use `.env.example` as a template:
+
+```bash
+# Frontend configurations
+NEXT_PUBLIC_API_URL=http://localhost:8000/api
+
+# Backend configurations
+GEMINI_API_KEY=your_google_gemini_api_key
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+VECTOR_STORE_PATH=data/vector_store
+LOG_LEVEL=INFO
+```
+
+### Local Development (Using Docker Compose)
+The easiest way to boot the application stack locally is using Docker Compose:
+
+```bash
+# 1. Clone the repository and configure environment variables
+cp .env.example .env
+
+# 2. Spin up the backend and frontend services
+docker-compose up --build
+```
+- **Frontend App**: `http://localhost:3000`
+- **FastAPI Documentation**: `http://localhost:8000/docs`
+- **Backend API**: `http://localhost:8000/api`
+
+### Manual Development Setup
+
+#### Backend Setup
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+#### Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ---
 
-## 📄 License
+## Deployment
+
+### Frontend (Vercel)
+Deploy the Next.js frontend to **Vercel** with the following steps:
+1. Connect your repository to Vercel.
+2. Set the Framework Preset to **Next.js**.
+3. In **Environment Variables**, add:
+   - `NEXT_PUBLIC_API_URL`: Your deployed FastAPI backend URL, including the `/api` segment (e.g., `https://your-api.onrender.com/api`).
+4. Click **Deploy**. Vercel will build the production standalone distribution.
+
+### Backend (Render)
+Deploy the FastAPI backend utilizing Render's Blueprint.
+1. Connect your repository to **Render** and deploy using the `New > Blueprint` flow.
+2. Render automatically reads render.yaml and provisions:
+   - A Web Service built with `backend/Dockerfile`.
+   - A 1GB persistent disk mapped to `vector_store` so FAISS vector databases persist across deployments.
+3. Configure the following variables inside the **Render Dashboard**:
+   - `GEMINI_API_KEY`: Securely configure your Google Gemini API Key.
+   - `CORS_ORIGINS`: Point to your production Vercel frontend URL (no trailing slash). E.g., `https://your-app.vercel.app,http://localhost:3000`.
+
+---
+
+## API Endpoints
+
+### `POST /api/ingest`
+Submits a URL (or list of URLs) to crawl, chunk, embed, and store.
+- **Request Body**:
+  ```json
+  {
+    "urls": ["https://docs.python.org/3/"],
+    "max_depth": 2,
+    "chunk_size": 1000,
+    "chunk_overlap": 200
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "status": "completed",
+    "pages_crawled": 1,
+    "chunks_created": 5,
+    "chunks_embedded": 5,
+    "chunks_indexed": 5
+  }
+  ```
+
+### `POST /api/chat`
+Ask questions against the indexed vector store content.
+- **Request Body**:
+  ```json
+  {
+    "query": "What is Python?",
+    "top_k": 5,
+    "stream": true
+  }
+  ```
+- **Response (stream=false)**: Returns a complete `ChatResponse` JSON.
+- **Response (stream=true)**: Returns an `EventStream` (SSE) yielding incremental tokens and final source citation links.
+
+### `GET /api/status`
+Retrieves indexing stats, local cache sizes, and non-sensitive configurations.
+
+### `GET /api/health`
+Liveness check returning `{ "status": "ok" }`.
+
+---
+
+## Screenshots
+
+*Placeholders for interface screenshots:*
+- **Chat Window View**: `[docs/screenshots/chat-interface.png]` (Interactive conversation panel)
+- **Website Indexing Panel**: `[docs/screenshots/indexing-page.png]` (Crawler pipeline supervisor)
+
+---
+
+## Known Limitations
+
+- **Local Vector Database**: FAISS operates entirely in-memory and persists index updates to a disk file. Consequently, horizontal scaling across multiple containers or instances requires a shared disk storage solution (like Render's persistent disk) or a migration to a managed vector store (e.g., Pinecone/Qdrant).
+- **Domain Scraping**: The asynchronous crawler limits crawling to pages matching the root seed host to prevent infinite traversal. Highly complex JavaScript dynamic rendered pages might not extract completely.
+
+---
+
+## Future Improvements
+
+- **Managed Vector DB Support**: Swapping out local FAISS for a remote cloud database provider by implementing the abstract `BaseVectorStore` class.
+- **Hybrid Search Capabilities**: Merging dense vector semantic retrieval with classic BM25 keyword matching for superior recall scores.
+- **Document Uploader**: Expanding crawler scopes to ingest PDF, CSV, and docx files directly via drag-and-drop.
+
+---
+
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
