@@ -155,6 +155,9 @@ export async function postIngest(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ urls, max_depth: maxDepth }),
   });
-  if (!res.ok) throw new Error("Ingest failed");
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Ingest failed (${res.status}): ${detail}`);
+  }
   return res.json();
 }

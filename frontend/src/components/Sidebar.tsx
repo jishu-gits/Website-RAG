@@ -7,7 +7,9 @@ import {
   Trash2,
   Edit2,
   Search,
+  Database,
 } from "lucide-react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatDate } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
@@ -63,14 +65,25 @@ function SidebarContent({ isMobile }: SidebarProps) {
 
   return (
     <div className="flex flex-col h-full bg-card dark:bg-card/50 border-r border-border">
-      {/* New Chat Button */}
-      <div className="p-4">
+      {/* New Chat & Index Buttons */}
+      <div className="p-4 space-y-2">
         <Button
           onClick={handleCreate}
           className="w-full justify-start gap-2 h-11"
         >
           <Plus className="h-4 w-4" />
           New Chat
+        </Button>
+        <Button
+          asChild
+          variant="outline"
+          className="w-full justify-start gap-2 h-11"
+          onClick={() => { if (isMobile) setSidebarOpen(false); }}
+        >
+          <Link href="/index">
+            <Database className="h-4 w-4" />
+            Index Website
+          </Link>
         </Button>
       </div>
 
